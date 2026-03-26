@@ -96,7 +96,7 @@ h1, h2, h3, h4, h5, h6 {
 .hero-section {
     position: relative;
     padding: 12rem 0 8rem;
-    background: url('assets/img/hero.png') center/cover no-repeat;
+    background: url('../images/hero.png') center/cover no-repeat;
     margin-top: 60px; /* Offset for fixed navbar */
 }
 

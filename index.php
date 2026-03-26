@@ -1,3 +1,38 @@
+<?php
+session_start();
+require_once 'includes/db.php';
+
+// Fetch submitted recipes from the DB
+$recipesData = [];
+try {
+    $stmt = $pdo->query("SELECT r.*, u.username as author FROM recipes r JOIN users u ON r.user_id = u.id ORDER BY r.created_at DESC");
+    $db_recipes = $stmt->fetchAll();
+
+    foreach ($db_recipes as $r) {
+        $recipesData[] = [
+            'id' => 'db_' . $r['id'],
+            'title' => $r['title'],
+            'category' => $r['category'],
+            'mealType' => [$r['category']], // fallback
+            'time' => $r['prep_time'] . ' mins',
+            'rating' => 5.0, // Default beautiful rating for frontend
+            'image' => $r['image'],
+            'desc' => 'A delicious ' . htmlspecialchars($r['category']) . ' recipe submitted by ' . htmlspecialchars($r['author']) . '.',
+            'ingredients' => array_filter(array_map('trim', explode("\n", $r['ingredients']))),
+            'instructions' => array_filter(array_map('trim', explode("\n", $r['instructions']))),
+            'featured' => false,
+            'author' => $r['author']
+        ];
+    }
+    
+    // Mark the 3 most recent recipes as featured for the home grid
+    for ($i = 0; $i < min(3, count($recipesData)); $i++) {
+        $recipesData[$i]['featured'] = true;
+    }
+} catch (PDOException $e) {
+    // Silently continue if tables aren't perfectly set up
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,7 +48,7 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css?v=1.1">
 </head>
 <body>
 
@@ -40,6 +75,23 @@
                     <li class="nav-item">
                         <a class="nav-link nav-btn" href="#" data-target="about" onclick="navigate('about')">About</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="contact.php">Contact</a>
+                    </li>
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                        <li class="nav-item ms-lg-3 mt-2 mt-lg-0">
+                            <a class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm" href="dashboard.php">
+                                <i class="bi bi-person-circle me-2"></i><?php echo htmlspecialchars($_SESSION['username']); ?>
+                            </a>
+                        </li>
+                        <li class="nav-item ms-lg-2 mt-2 mt-lg-0">
+                            <a class="btn btn-outline-danger rounded-pill px-4 fw-semibold shadow-sm" href="auth/logout.php">Logout</a>
+                        </li>
+                    <?php else: ?>
+                        <li class="nav-item ms-lg-3 mt-2 mt-lg-0">
+                            <a class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm" href="#" data-bs-toggle="modal" data-bs-target="#authModal">Get Started</a>
+                        </li>
+                    <?php endif; ?>
                 </ul>
             </div>
         </div>
@@ -168,39 +220,53 @@
                                 <p class="mb-0 text-white-50 position-relative z-1">Join the CookSphere community and showcase your culinary skills.</p>
                             </div>
                             <div class="card-body p-5">
-                                <form id="submitRecipeForm">
+                                <?php if(isset($_SESSION['user_id'])): ?>
+                                <form id="submitRecipeForm" method="POST" action="submit_recipe.php" enctype="multipart/form-data">
                                     <div class="row g-4">
                                         <div class="col-md-6">
                                             <label class="form-label fw-semibold text-dark">Recipe Title</label>
-                                            <input type="text" class="form-control form-control-lg bg-light border-0" placeholder="e.g. Classic Margherita Pizza" required>
+                                            <input type="text" name="title" class="form-control form-control-lg bg-light border-0" placeholder="e.g. Margherita Pizza" required>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label fw-semibold text-dark">Preparation Time (mins)</label>
-                                            <input type="number" class="form-control form-control-lg bg-light border-0" placeholder="e.g. 45" required>
+                                            <input type="number" name="prep_time" class="form-control form-control-lg bg-light border-0" placeholder="e.g. 45" required min="1">
                                         </div>
                                         <div class="col-12">
                                             <label class="form-label fw-semibold text-dark">Category</label>
-                                            <select class="form-select form-select-lg bg-light border-0">
-                                                <option selected>Choose a category...</option>
-                                                <option value="1">Breakfast</option>
-                                                <option value="2">Lunch</option>
-                                                <option value="3">Dinner</option>
-                                                <option value="4">Dessert</option>
+                                            <select name="category" class="form-select form-select-lg bg-light border-0" required>
+                                                <option value="" selected disabled>Choose a category...</option>
+                                                <option value="Breakfast">Breakfast</option>
+                                                <option value="Lunch">Lunch</option>
+                                                <option value="Dinner">Dinner</option>
+                                                <option value="Desserts">Desserts</option>
+                                                <option value="Healthy">Healthy</option>
                                             </select>
                                         </div>
                                         <div class="col-12">
+                                            <label class="form-label fw-semibold text-dark">Recipe Image (Optional)</label>
+                                            <input type="file" name="image" class="form-control form-control-lg bg-light border-0" accept="image/*">
+                                        </div>
+                                        <div class="col-12">
                                             <label class="form-label fw-semibold text-dark">Ingredients (one per line)</label>
-                                            <textarea class="form-control form-control-lg bg-light border-0" rows="5" placeholder="2 cups flour&#10;1 tsp salt&#10;..." required></textarea>
+                                            <textarea name="ingredients" class="form-control form-control-lg bg-light border-0" rows="5" placeholder="2 cups flour&#10;1 tsp salt&#10;..." required></textarea>
                                         </div>
                                         <div class="col-12">
                                             <label class="form-label fw-semibold text-dark">Step-by-Step Instructions</label>
-                                            <textarea class="form-control form-control-lg bg-light border-0" rows="6" placeholder="1. Preheat oven...&#10;2. Mix ingredients..." required></textarea>
+                                            <textarea name="instructions" class="form-control form-control-lg bg-light border-0" rows="6" placeholder="1. Preheat oven...&#10;2. Mix ingredients..." required></textarea>
                                         </div>
                                         <div class="col-12 mt-5">
                                             <button type="submit" class="btn btn-primary btn-lg px-5 rounded-pill fw-bold w-100 shadow-sm transition-hover">Publish Recipe <i class="bi bi-arrow-right ms-2"></i></button>
                                         </div>
                                     </div>
                                 </form>
+                                <?php else: ?>
+                                <div class="text-center py-5">
+                                    <i class="bi bi-lock text-muted mb-3" style="font-size: 4rem;"></i>
+                                    <h4 class="fw-bold">Login Required</h4>
+                                    <p class="text-muted mb-4 fs-5">You must be proudly signed in to share your recipes with our community.</p>
+                                    <button class="btn btn-primary rounded-pill px-5 py-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#authModal">Login to Continue</button>
+                                </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -230,7 +296,7 @@
                     </div>
                     <div class="col-lg-6">
                         <div class="position-relative">
-                            <img src="assets/img/pasta.png" alt="About Us" class="img-fluid rounded-4 shadow-lg object-fit-cover w-100" style="height: 400px;">
+                            <img src="images/pasta.png" alt="About Us" class="img-fluid rounded-4 shadow-lg object-fit-cover w-100" style="height: 400px;">
                             <div class="position-absolute bottom-0 start-0 bg-white p-4 rounded-3 shadow-lg m-4 glass-card border-0">
                                 <h3 class="fw-bold mb-0 text-primary">10k+</h3>
                                 <p class="mb-0 text-muted small fw-semibold text-uppercase">Active Home Chefs</p>
@@ -311,10 +377,40 @@
         </div>
     </footer>
 
+    <?php if (!isset($_SESSION['user_id'])): ?>
+    <!-- Auth Modal -->
+    <div class="modal fade" id="authModal" tabindex="-1" aria-labelledby="authModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-5 text-center pattern-bg position-relative">
+                    <div class="mb-4 position-relative z-1">
+                        <i class="bi bi-egg-fried text-primary" style="font-size: 3.5rem;"></i>
+                    </div>
+                    <h3 class="fw-bold mb-3 position-relative z-1" id="authModalLabel">Welcome to CookSphere!</h3>
+                    <p class="text-muted mb-4 position-relative z-1">Sign in to discover, share, and manage your favorite recipes.</p>
+                    <div class="d-grid gap-3 position-relative z-1">
+                        <a href="auth/login.php" class="btn btn-primary btn-lg rounded-pill fw-bold shadow-sm transition-hover">Login</a>
+                        <a href="auth/register.php" class="btn btn-outline-dark btn-lg rounded-pill fw-bold transition-hover">Register</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom script for logic -->
-    <script src="app.js"></script>
+
+    <!-- Inject PHP populated recipes data for JS to consume -->
+    <script>
+        window.dbRecipes = <?php echo json_encode($recipesData); ?>;
+    </script>
+
+    <!-- Main JS Application Logic -->
+    <script src="js/app.js?v=2"></script>
 
 </body>
 </html>

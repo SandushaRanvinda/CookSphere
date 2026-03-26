@@ -1,5 +1,5 @@
 // Recipe Data
-const recipesData = [
+const dummyRecipes = [
     {
         id: 'r1',
         title: 'Creamy Gourmet Pasta',
@@ -7,7 +7,7 @@ const recipesData = [
         mealType: ['Dinner', 'Lunch'],
         time: '25 mins',
         rating: 4.9,
-        image: 'assets/img/pasta.png',
+        image: 'images/pasta.png',
         desc: 'A beautiful ceramic plate filled with rich, creamy pasta garnished with fresh basil leaves.',
         ingredients: [
             '8 oz fettuccine pasta',
@@ -34,7 +34,7 @@ const recipesData = [
         mealType: ['Lunch', 'Dinner'],
         time: '20 mins',
         rating: 4.8,
-        image: 'assets/img/burger.png',
+        image: 'images/burger.png',
         desc: 'Juicy double beef patty with crispy bacon, melted cheese, and fresh lettuce on a toasted bun.',
         ingredients: [
             '2 beef patties (1/4 lb each)',
@@ -60,7 +60,7 @@ const recipesData = [
         mealType: ['Breakfast', 'Lunch', 'Dinner'],
         time: '15 mins',
         rating: 5.0,
-        image: 'assets/img/salad.png',
+        image: 'images/salad.png',
         desc: 'A healthy bowl filled with quinoa, avocado, and colorful vegetables for your well-being.',
         ingredients: [
             '1 cup cooked quinoa',
@@ -86,7 +86,7 @@ const recipesData = [
         mealType: ['Lunch', 'Dinner'],
         time: '15 mins',
         rating: 4.9,
-        image: 'assets/img/noodles.png',
+        image: 'images/noodles.png',
         desc: 'Quick and easy umami-packed garlic noodles with a spicy kick, garnished with scallions.',
         ingredients: [
             '8 oz dry noodles (ramen or spaghetti)',
@@ -160,7 +160,7 @@ const recipesData = [
         mealType: ['Breakfast'],
         time: '10 mins',
         rating: 4.8,
-        image: 'assets/img/avocado.png',
+        image: 'images/avocado.png',
         desc: 'Crusty artisan bread topped with mashed avocado, a perfectly poached egg, and microgreens.',
         ingredients: [
             '2 slices sourdough bread',
@@ -277,6 +277,12 @@ const recipesData = [
         featured: false
     }
 ];
+
+// Combine dynamic dbRecipes with dummyRecipes so users see the newly submitted 
+// recipes at the top without losing the rich demo content
+let recipesData = window.dbRecipes && window.dbRecipes.length > 0 
+    ? [...window.dbRecipes, ...dummyRecipes] 
+    : dummyRecipes;
 
 // SPA Navigation Logic
 function navigate(viewId) {
@@ -418,7 +424,8 @@ window.renderAllRecipes = function(category = 'All') {
     const allContainer = document.getElementById('all-recipes-container');
     if (!allContainer) return;
 
-    let filteredRecipes = recipesData;
+    // State
+    let filteredRecipes = [...recipesData];
     if (category !== 'All') {
         filteredRecipes = recipesData.filter(r => r.mealType.includes(category));
     }
@@ -462,16 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Generate All Recipes initially
     renderAllRecipes('All');
 
-    // Handle Form Submission
-    const submitForm = document.getElementById('submitRecipeForm');
-    if (submitForm) {
-        submitForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            alert('Awesome! Your recipe has been published successfully. 🎉');
-            submitForm.reset();
-            navigate('home');
-        });
-    }
+    // HTML form will naturally POST to submit_recipe.php
 
     // Filter Buttons Logic in Recipes Page
     const filterBtns = document.querySelectorAll('.filter-btn');
